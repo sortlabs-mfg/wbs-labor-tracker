@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, runMigrations } from '@/lib/db';
 import { WBS_CODES } from '@/lib/constants';
 
+export const dynamic = 'force-dynamic';
+
 let migrated = false;
 async function ensureMigrated() {
   if (!migrated) {

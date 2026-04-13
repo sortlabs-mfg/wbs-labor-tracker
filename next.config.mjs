@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Allow pg and papaparse to be used in server components/routes
-  serverExternalPackages: ['pg'],
+  experimental: {
+    serverComponentsExternalPackages: ['pg'],
+  },
 };
 
 export default nextConfig;

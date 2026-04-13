@@ -3,6 +3,8 @@ import Papa from 'papaparse';
 import { query, runMigrations } from '@/lib/db';
 import { SKIP_PAY_TYPES, SKIP_WBS_CODES } from '@/lib/constants';
 
+export const dynamic = 'force-dynamic';
+
 let migrated = false;
 async function ensureMigrated() {
   if (!migrated) {
