@@ -22,6 +22,7 @@ const EMPTY_RESPONSE = {
 
 export async function GET(req: NextRequest) {
   try {
+    console.log('DB URL defined:', !!process.env.DATABASE_URL);
     await ensureMigrated();
     const { searchParams } = new URL(req.url);
     const job = searchParams.get('job') || '';
