@@ -11,18 +11,11 @@ interface Job {
   status: string;
 }
 
-interface ActualByWbs {
+interface WbsEntry {
   wbs_code: string;
   wbs_name: string;
-  actual_hrs: string;
-  job_number: string;
-}
-
-interface Estimate {
-  job_number: string;
-  wbs_code: string;
-  wbs_name: string;
-  estimated_hrs: string;
+  actual_hrs: number;
+  estimated_hrs: number;
 }
 
 interface ByEmployee {
@@ -42,11 +35,18 @@ interface DetailRow {
   work_date: string;
 }
 
+interface Metrics {
+  totalEstimated: number;
+  totalActual: number;
+  variance: number;
+  activitiesOver: number;
+}
+
 interface DashboardData {
-  actualByWbs: ActualByWbs[];
-  estimates: Estimate[];
+  byWbs: WbsEntry[];
   byEmployee: ByEmployee[];
-  detail: DetailRow[];
+  metrics: Metrics;
+  details: DetailRow[];
   employees: string[];
   jobs: Job[];
 }
@@ -70,15 +70,17 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 6 }, (_, i) => currentYear - 3 + i);
 
+const EMPTY_DATA: DashboardData = {
+  byWbs: [],
+  byEmployee: [],
+  metrics: { totalEstimated: 0, totalActual: 0, variance: 0, activitiesOver: 0 },
+  details: [],
+  employees: [],
+  jobs: [],
+};
+
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData>({
-    actualByWbs: [],
-    estimates: [],
-    byEmployee: [],
-    detail: [],
-    employees: [],
-    jobs: [],
-  });
+  const [data, setData] = useState<DashboardData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     job: '',
@@ -100,12 +102,12 @@ export default function DashboardPage() {
       if (filters.year) params.set('year', filters.year);
       const res = await fetch(`/api/dashboard?${params}`);
       const json = await res.json();
-      if (res.ok && json && !json.error) {
+      if (json && !json.error) {
         setData({
-          actualByWbs: json.actualByWbs ?? [],
-          estimates: json.estimates ?? [],
+          byWbs: json.byWbs ?? [],
           byEmployee: json.byEmployee ?? [],
-          detail: json.detail ?? [],
+          metrics: json.metrics ?? { totalEstimated: 0, totalActual: 0, variance: 0, activitiesOver: 0 },
+          details: json.details ?? [],
           employees: json.employees ?? [],
           jobs: json.jobs ?? [],
         });
@@ -120,42 +122,11 @@ export default function DashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  const wbsChartData = (() => {
-    if (!data) return [];
-    const map = new Map<string, { wbs_code: string; wbs_name: string; actual_hrs: number; estimated_hrs: number }>();
-    for (const e of data.estimates) {
-      map.set(e.wbs_code, {
-        wbs_code: e.wbs_code,
-        wbs_name: e.wbs_name,
-        actual_hrs: 0,
-        estimated_hrs: parseFloat(e.estimated_hrs),
-      });
-    }
-    for (const a of data.actualByWbs) {
-      const existing = map.get(a.wbs_code);
-      if (existing) {
-        existing.actual_hrs = parseFloat(a.actual_hrs);
-      } else {
-        map.set(a.wbs_code, {
-          wbs_code: a.wbs_code,
-          wbs_name: a.wbs_name,
-          actual_hrs: parseFloat(a.actual_hrs),
-          estimated_hrs: 0,
-        });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => a.wbs_code.localeCompare(b.wbs_code));
-  })();
-
-  const totalEstimated = wbsChartData.reduce((s, r) => s + r.estimated_hrs, 0);
-  const totalActual = wbsChartData.reduce((s, r) => s + r.actual_hrs, 0);
-  const variance = totalActual - totalEstimated;
+  const { totalEstimated, totalActual, variance, activitiesOver } = data.metrics;
   const variancePct = totalEstimated > 0 ? (variance / totalEstimated) * 100 : 0;
-  const activitiesOver = wbsChartData.filter((r) => r.actual_hrs > r.estimated_hrs && r.estimated_hrs > 0).length;
 
   const sortedDetail = (() => {
-    if (!data) return [];
-    let rows = [...data.detail];
+    let rows = [...data.details];
     if (tableFilter) {
       const f = tableFilter.toLowerCase();
       rows = rows.filter(
@@ -195,7 +166,7 @@ export default function DashboardPage() {
             className="border border-slate-300 rounded px-2 py-1.5 text-sm bg-white min-w-[180px]"
           >
             <option value="">All Jobs</option>
-            {data?.jobs.map((j) => (
+            {data.jobs.map((j) => (
               <option key={j.job_number} value={j.job_number}>
                 {j.job_number} – {j.job_name}
               </option>
@@ -210,7 +181,7 @@ export default function DashboardPage() {
             className="border border-slate-300 rounded px-2 py-1.5 text-sm bg-white min-w-[160px]"
           >
             <option value="">All Employees</option>
-            {data?.employees.map((emp) => (
+            {data.employees.map((emp) => (
               <option key={emp} value={emp}>{emp}</option>
             ))}
           </select>
@@ -274,7 +245,7 @@ export default function DashboardPage() {
             <h2 className="text-sm font-semibold text-slate-700 mb-3">
               Estimated vs Actual Hours by WBS Code
             </h2>
-            <WbsBarChart data={wbsChartData} />
+            <WbsBarChart data={data.byWbs} />
           </div>
 
           {/* Employee Stacked Bar Chart */}
