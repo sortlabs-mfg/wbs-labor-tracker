@@ -71,7 +71,14 @@ const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 6 }, (_, i) => currentYear - 3 + i);
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [data, setData] = useState<DashboardData>({
+    actualByWbs: [],
+    estimates: [],
+    byEmployee: [],
+    detail: [],
+    employees: [],
+    jobs: [],
+  });
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     job: '',
@@ -85,14 +92,26 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (filters.job) params.set('job', filters.job);
-    if (filters.employee) params.set('employee', filters.employee);
-    if (filters.month) params.set('month', filters.month);
-    if (filters.year) params.set('year', filters.year);
-    const res = await fetch(`/api/dashboard?${params}`);
-    if (res.ok) {
-      setData(await res.json());
+    try {
+      const params = new URLSearchParams();
+      if (filters.job) params.set('job', filters.job);
+      if (filters.employee) params.set('employee', filters.employee);
+      if (filters.month) params.set('month', filters.month);
+      if (filters.year) params.set('year', filters.year);
+      const res = await fetch(`/api/dashboard?${params}`);
+      const json = await res.json();
+      if (res.ok && json && !json.error) {
+        setData({
+          actualByWbs: json.actualByWbs ?? [],
+          estimates: json.estimates ?? [],
+          byEmployee: json.byEmployee ?? [],
+          detail: json.detail ?? [],
+          employees: json.employees ?? [],
+          jobs: json.jobs ?? [],
+        });
+      }
+    } catch (err) {
+      console.error('[dashboard] fetch error:', err);
     }
     setLoading(false);
   }, [filters]);
@@ -264,7 +283,7 @@ export default function DashboardPage() {
               Hours by Employee (Stacked by WBS)
             </h2>
             <EmployeeStackedChart
-              data={data!.byEmployee.map((r) => ({ ...r, hours: Number(r.hours) }))}
+              data={data.byEmployee.map((r) => ({ ...r, hours: Number(r.hours) }))}
             />
           </div>
 
